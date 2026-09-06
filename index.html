@@ -180,15 +180,17 @@
   const LOCAL_CACHE_KEY = "timeLedger.cache.v1";
   const SYNC_ID_KEY = "timeLedger.syncId.v1";
 
-  // Firebase project "time-ledger-vc" (free Spark plan). This config is not secret —
-  // access is controlled by Firestore security rules (anonymous auth required), not by hiding this.
+  // Reuses the "voice-reminders" Firebase project (free Spark plan) — same project that
+  // powered the old Reminders app, now retired in favor of this one. Same "lists" collection
+  // shape, so the project's existing Firestore rules already cover it. This config is not
+  // secret — access is controlled by those rules (anonymous auth required), not by hiding this.
   const firebaseConfig = {
-    apiKey: "AIzaSyDyb3-swCrJ6R0f24Nch1v2NwjeDfHsn4M",
-    authDomain: "time-ledger-vc.firebaseapp.com",
-    projectId: "time-ledger-vc",
-    storageBucket: "time-ledger-vc.firebasestorage.app",
-    messagingSenderId: "980996487398",
-    appId: "1:980996487398:web:7fed1e4c425f07683c2327"
+    apiKey: "AIzaSyCFQSpmiSvDepYn08jNkl9Q-zCVdI0BYN4",
+    authDomain: "voice-reminders-d641e.firebaseapp.com",
+    projectId: "voice-reminders-d641e",
+    storageBucket: "voice-reminders-d641e.firebasestorage.app",
+    messagingSenderId: "900498730463",
+    appId: "1:900498730463:web:6899f5d9e9783678b0a86a"
   };
   let db = null, auth = null;
   try{
