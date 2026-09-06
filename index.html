@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="יומן זמן">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#F9F9F7">
+<title>יומן זמן</title>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#FCFCFB; --wash:#F9F9F7; --ink:#2E2C27; --ink-soft:#6B6A63;
+    --ink-grey:#B4B3A8; --hairline:#E4E3DC; --clay:#C6613F; --clay-hover:#AE5133;
+    --ok:#3F7D53; --ok-wash:#EAF3EC; --warn:#B4863B; --warn-wash:#FBF3E4;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;}
+  body{min-height:100dvh;display:flex;flex-direction:column;align-items:center;padding:24px 16px 60px;}
+  .wrap{width:100%;max-width:560px;}
+  h1{font-size:22px;margin:6px 0 2px;text-align:center;}
+  .sub{color:var(--ink-soft);text-align:center;font-size:14px;margin:0 0 20px;}
+
+  .panel{background:var(--wash);border:1px solid var(--hairline);border-radius:16px;padding:18px;margin-bottom:18px;}
+
+  .sync-status{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:10px;}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--ink-grey);flex:none;}
+  .dot.ok{background:var(--ok);}
+  .dot.warn{background:var(--warn);}
+  .sync-row{display:flex;gap:8px;margin-bottom:8px;}
+  .sync-row input{flex:1;border:1px solid var(--hairline);border-radius:8px;padding:9px 10px;font-size:13px;background:#fff;color:var(--ink);font-family:inherit;}
+  .sync-row button{white-space:nowrap;}
+  .small-btn{background:#fff;color:var(--ink);border:1px solid var(--hairline);border-radius:8px;padding:9px 14px;font-size:13px;cursor:pointer;}
+  .small-btn:hover{border-color:var(--clay);}
+  .sync-hint{font-size:12px;color:var(--ink-soft);line-height:1.5;margin-top:6px;}
+  .join-toggle{font-size:12px;color:var(--ink-soft);text-decoration:underline;text-underline-offset:2px;cursor:pointer;}
+  #joinBox{display:none;margin-top:10px;}
+
+  .add-panel{background:var(--wash);border:1px solid var(--hairline);border-radius:16px;padding:18px;margin-bottom:22px;}
+  .add-row{display:flex;gap:8px;align-items:flex-start;}
+  .add-row textarea{
+    flex:1;border:1px solid var(--hairline);border-radius:10px;padding:11px 12px;
+    font-family:inherit;font-size:15px;resize:vertical;background:#fff;color:var(--ink);
+    min-height:44px;
+  }
+  .mic-btn{
+    width:44px;height:44px;flex:none;border-radius:50%;border:none;cursor:pointer;
+    background:var(--clay);color:#fff;font-size:18px;
+  }
+  .mic-btn.recording{background:var(--clay-hover);animation:pulse 1.4s infinite;}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(198,97,63,.45);}70%{box-shadow:0 0 0 12px rgba(198,97,63,0);}100%{box-shadow:0 0 0 0 rgba(198,97,63,0);}}
+  .add-meta{display:flex;gap:10px;margin-top:10px;align-items:center;}
+  .add-meta input[type=date]{border:1px solid var(--hairline);border-radius:8px;padding:8px 10px;font-size:13px;background:#fff;color:var(--ink);font-family:inherit;}
+  button.primary{
+    background:var(--clay);color:#fff;border:none;border-radius:8px;
+    padding:9px 18px;font-size:14px;font-weight:500;cursor:pointer;margin-right:auto;
+  }
+  button.primary:hover{background:var(--clay-hover);}
+
+  .tabs{display:flex;gap:6px;margin-bottom:16px;background:var(--wash);border:1px solid var(--hairline);border-radius:12px;padding:4px;}
+  .tab{flex:1;text-align:center;padding:9px 0;border-radius:9px;font-size:14px;cursor:pointer;color:var(--ink-soft);}
+  .tab.active{background:var(--clay);color:#fff;}
+
+  .filters{display:flex;gap:8px;margin-bottom:14px;}
+  .filter{font-size:12px;color:var(--ink-soft);border:1px solid var(--hairline);border-radius:20px;padding:5px 12px;cursor:pointer;background:#fff;}
+  .filter.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+
+  .entry{background:#fff;border:1px solid var(--hairline);border-radius:12px;padding:14px;margin-bottom:10px;}
+  .entry.done .text{text-decoration:line-through;color:var(--ink-grey);}
+  .row1{display:flex;align-items:flex-start;gap:10px;}
+  .row1 input[type=checkbox]{width:19px;height:19px;margin-top:1px;flex:none;accent-color:var(--clay);}
+  .row1 .text{flex:1;font-size:15px;line-height:1.4;}
+  .row1 .date{font-size:11px;color:var(--ink-grey);white-space:nowrap;margin-top:2px;}
+  .row2{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;}
+  .kindBtn{font-size:12px;border:1px solid var(--hairline);border-radius:20px;padding:5px 12px;cursor:pointer;background:#fff;color:var(--ink-soft);}
+  .kindBtn.income.active{background:var(--ok-wash);border-color:var(--ok);color:var(--ok);}
+  .kindBtn.expense.active{background:#FBEDE7;border-color:var(--clay);color:var(--clay-hover);}
+  .amountInput{width:90px;border:1px solid var(--hairline);border-radius:8px;padding:6px 8px;font-size:13px;font-family:inherit;background:#fff;color:var(--ink);}
+  .row2 .del{font-size:12px;color:var(--ink-soft);cursor:pointer;text-decoration:underline;text-underline-offset:2px;margin-right:auto;}
+
+  .empty{text-align:center;color:var(--ink-grey);font-size:13px;padding:30px 0;}
+
+  .summary-header{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:16px;}
+  .summary-header button{background:#fff;border:1px solid var(--hairline);border-radius:8px;width:34px;height:34px;font-size:16px;cursor:pointer;}
+  .summary-header .label{font-size:16px;font-weight:600;min-width:130px;text-align:center;}
+
+  .totals{display:flex;gap:10px;margin-bottom:18px;}
+  .total-box{flex:1;border-radius:12px;padding:14px;text-align:center;}
+  .total-box .num{font-size:18px;font-weight:700;margin-top:2px;}
+  .total-box.income{background:var(--ok-wash);color:var(--ok);}
+  .total-box.expense{background:#FBEDE7;color:var(--clay-hover);}
+  .total-box.net{background:var(--wash);color:var(--ink);border:1px solid var(--hairline);}
+  .total-box .lbl{font-size:12px;}
+
+  .unclassified{background:var(--warn-wash);border:1px solid #E9D9B8;color:var(--ink);
+    border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:18px;line-height:1.5;}
+
+  .list-heading{font-size:14px;font-weight:600;margin:16px 0 8px;}
+  .banner{background:#FBEDE7;border:1px solid #E9C9BA;color:var(--ink);
+    border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:18px;line-height:1.5;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🗓️ יומן זמן</h1>
+  <p class="sub">כל משימה שעושים או מתכננים — מתועדת. בסוף החודש הופכים הכל להכנסות והוצאות.</p>
+
+  <div id="unsupportedBanner" class="banner" style="display:none;">
+    הדפדפן הזה לא תומך בזיהוי דיבור אוטומטי. אפשר להקליד, או להשתמש בכפתור ההכתבה 🎤 שבמקלדת.
+  </div>
+
+  <div class="panel" id="syncPanel">
+    <div class="sync-status"><span class="dot" id="syncDot"></span><span id="syncText">מתחבר לסנכרון…</span></div>
+    <div class="sync-row">
+      <button class="small-btn" id="copyLinkBtn">העתקת קישור לשיתוף בין המכשירים</button>
+      <button class="small-btn" id="refreshBtn" title="רענון">⟳</button>
+    </div>
+    <div class="sync-hint">כדי לראות את אותו יומן במכשיר השני, פותחים בו את הקישור שהעתקת כאן — פעם אחת מספיקה.</div>
+    <div><span class="join-toggle" id="joinToggle">כבר יש לי קוד/קישור ממכשיר אחר</span></div>
+    <div id="joinBox">
+      <div class="sync-row">
+        <input type="text" id="joinInput" placeholder="הדביקי כאן קוד או קישור סנכרון">
+        <button class="small-btn" id="joinBtn">חיבור</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="add-panel">
+    <div class="add-row">
+      <textarea id="entryText" placeholder="מה עשית, או מה מתוכנן... (אפשר גם להכתיב)"></textarea>
+      <button id="micBtn" class="mic-btn">🎤</button>
+    </div>
+    <div class="add-meta">
+      <input type="date" id="entryDate">
+      <button class="primary" id="addBtn">הוספה</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" id="tabList" data-tab="list">רשימה</div>
+    <div class="tab" id="tabSummary" data-tab="summary">סיכום חודשי</div>
+  </div>
+
+  <div id="listView">
+    <div class="filters">
+      <span class="filter active" data-filter="all">הכל</span>
+      <span class="filter" data-filter="open">פתוחות</span>
+      <span class="filter" data-filter="done">בוצעו</span>
+    </div>
+    <div id="list"></div>
+    <div class="empty" id="emptyMsg">עוד אין משימות.</div>
+  </div>
+
+  <div id="summaryView" style="display:none;">
+    <div class="summary-header">
+      <button id="prevMonth">›</button>
+      <div class="label" id="monthLabel"></div>
+      <button id="nextMonth">‹</button>
+    </div>
+    <div class="totals">
+      <div class="total-box income"><div class="lbl">הכנסות</div><div class="num" id="incomeTotal">₪0</div></div>
+      <div class="total-box expense"><div class="lbl">הוצאות</div><div class="num" id="expenseTotal">₪0</div></div>
+      <div class="total-box net"><div class="lbl">נטו</div><div class="num" id="netTotal">₪0</div></div>
+    </div>
+    <div class="unclassified" id="unclassifiedNote" style="display:none;"></div>
+    <div class="list-heading">הכנסות</div>
+    <div id="incomeList"></div>
+    <div class="list-heading">הוצאות</div>
+    <div id="expenseList"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const LOCAL_CACHE_KEY = "timeLedger.cache.v1";
+  const SYNC_ID_KEY = "timeLedger.syncId.v1";
+
+  // Firebase project "time-ledger-vc" (free Spark plan). This config is not secret —
+  // access is controlled by Firestore security rules (anonymous auth required), not by hiding this.
+  const firebaseConfig = {
+    apiKey: "AIzaSyDyb3-swCrJ6R0f24Nch1v2NwjeDfHsn4M",
+    authDomain: "time-ledger-vc.firebaseapp.com",
+    projectId: "time-ledger-vc",
+    storageBucket: "time-ledger-vc.firebasestorage.app",
+    messagingSenderId: "980996487398",
+    appId: "1:980996487398:web:7fed1e4c425f07683c2327"
+  };
+  let db = null, auth = null;
+  try{
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    auth = firebase.auth();
+  } catch(e){ /* db/auth stay null — handled below */ }
+
+  const entryText = document.getElementById('entryText');
+  const entryDate = document.getElementById('entryDate');
+  const micBtn = document.getElementById('micBtn');
+  const addBtn = document.getElementById('addBtn');
+  const listEl = document.getElementById('list');
+  const emptyMsg = document.getElementById('emptyMsg');
+  const unsupportedBanner = document.getElementById('unsupportedBanner');
+  const syncDot = document.getElementById('syncDot');
+  const syncText = document.getElementById('syncText');
+  const copyLinkBtn = document.getElementById('copyLinkBtn');
+  const refreshBtn = document.getElementById('refreshBtn');
+  const joinToggle = document.getElementById('joinToggle');
+  const joinBox = document.getElementById('joinBox');
+  const joinInput = document.getElementById('joinInput');
+  const joinBtn = document.getElementById('joinBtn');
+  const tabList = document.getElementById('tabList');
+  const tabSummary = document.getElementById('tabSummary');
+  const listView = document.getElementById('listView');
+  const summaryView = document.getElementById('summaryView');
+  const prevMonthBtn = document.getElementById('prevMonth');
+  const nextMonthBtn = document.getElementById('nextMonth');
+  const monthLabel = document.getElementById('monthLabel');
+  const incomeTotalEl = document.getElementById('incomeTotal');
+  const expenseTotalEl = document.getElementById('expenseTotal');
+  const netTotalEl = document.getElementById('netTotal');
+  const unclassifiedNote = document.getElementById('unclassifiedNote');
+  const incomeListEl = document.getElementById('incomeList');
+  const expenseListEl = document.getElementById('expenseList');
+
+  let syncId = null;
+  let entries = [];
+  let unsubscribe = null;
+  let pendingPush = false;
+  let currentTab = 'list';
+  let currentFilter = 'all';
+
+  function todayStr(){
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  entryDate.value = todayStr();
+
+  let summaryMonth = todayStr().slice(0,7); // "YYYY-MM"
+
+  // ---------- local cache (works offline / as instant fallback) ----------
+  function loadCache(){
+    try { return JSON.parse(localStorage.getItem(LOCAL_CACHE_KEY) || "[]"); }
+    catch(e){ return []; }
+  }
+  function saveCache(list){
+    localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(list));
+  }
+
+  // ---------- remote sync (Firebase Firestore — free Spark plan, anonymous auth required by rules) ----------
+  function setStatus(state, text){
+    syncDot.className = 'dot' + (state ? ' ' + state : '');
+    syncText.textContent = text;
+  }
+
+  function urlWithSync(id){
+    const u = new URL(location.href);
+    u.searchParams.set('sync', id);
+    return u.toString();
+  }
+
+  function randomListId(){
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID().replace(/-/g, '');
+    return 'l' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+  }
+
+  let authReady = null;
+  function ensureAuth(){
+    if (!db || !auth) return Promise.reject(new Error('sync unavailable'));
+    if (!authReady){
+      authReady = new Promise((resolve, reject)=>{
+        const unsub = auth.onAuthStateChanged(user=>{
+          if (user){ unsub(); resolve(user); }
+        }, reject);
+        auth.signInAnonymously().catch(reject);
+      });
+    }
+    return authReady;
+  }
+
+  function mergeLists(a, b){
+    const byId = new Map();
+    (a||[]).forEach(it => { if (it && it.id) byId.set(it.id, it); });
+    (b||[]).forEach(it => { if (it && it.id) byId.set(it.id, it); });
+    return Array.from(byId.values()).sort((x,y) => (y.ts||0) - (x.ts||0));
+  }
+
+  async function pullRemote(id){
+    await ensureAuth();
+    const snap = await db.collection('lists').doc(id).get();
+    if (!snap.exists) return [];
+    const data = snap.data();
+    return Array.isArray(data.entries) ? data.entries : [];
+  }
+
+  async function pushRemote(id, list){
+    await ensureAuth();
+    await db.collection('lists').doc(id).set({ entries: list, updatedAt: Date.now() });
+  }
+
+  function attachListener(id){
+    if (unsubscribe){ unsubscribe(); unsubscribe = null; }
+    unsubscribe = db.collection('lists').doc(id).onSnapshot(snap => {
+      const data = snap.exists ? snap.data() : null;
+      entries = (data && Array.isArray(data.entries)) ? data.entries : [];
+      saveCache(entries);
+      render();
+      setStatus('ok', 'מסונכרן ✓');
+    }, ()=>{
+      setStatus('warn', 'אין חיבור לסנכרון כרגע — עובד במצב מקומי בלבד');
+    });
+  }
+
+  async function initSync(){
+    const params = new URLSearchParams(location.search);
+    const fromUrl = params.get('sync');
+    const stored = localStorage.getItem(SYNC_ID_KEY);
+    syncId = fromUrl || stored || null;
+
+    entries = loadCache();
+    render();
+
+    try{
+      await ensureAuth();
+      if (!syncId){
+        setStatus('', 'יוצר יומן מסונכרן חדש…');
+        syncId = randomListId();
+        localStorage.setItem(SYNC_ID_KEY, syncId);
+        history.replaceState(null, '', urlWithSync(syncId));
+        await pushRemote(syncId, entries);
+        attachListener(syncId);
+      } else {
+        localStorage.setItem(SYNC_ID_KEY, syncId);
+        if (fromUrl) history.replaceState(null, '', urlWithSync(syncId));
+        setStatus('', 'מסנכרן…');
+        attachListener(syncId);
+      }
+    } catch(e){
+      setStatus('warn', 'אין חיבור לסנכרון כרגע — עובד במצב מקומי בלבד');
+    }
+  }
+
+  async function persist(){
+    saveCache(entries);
+    render();
+    if (!syncId) return;
+    try{
+      await pushRemote(syncId, entries);
+      pendingPush = false;
+      setStatus('ok', 'מסונכרן ✓');
+    } catch(e){
+      pendingPush = true;
+      setStatus('warn', 'לא הצליח לסנכרן כרגע — נשמר מקומית, ננסה שוב ברענון');
+    }
+  }
+
+  refreshBtn.addEventListener('click', async ()=>{
+    if (!syncId){ initSync(); return; }
+    setStatus('', 'מרענן…');
+    try{
+      if (pendingPush){
+        await pushRemote(syncId, entries);
+        pendingPush = false;
+      }
+      attachListener(syncId);
+      setStatus('ok', 'מסונכרן ✓');
+    } catch(e){
+      setStatus('warn', 'הרענון נכשל — בדוק חיבור לאינטרנט');
+    }
+  });
+
+  document.addEventListener('visibilitychange', ()=>{
+    if (document.visibilityState === 'visible' && syncId) attachListener(syncId);
+  });
+
+  copyLinkBtn.addEventListener('click', ()=>{
+    const link = syncId ? urlWithSync(syncId) : location.href;
+    navigator.clipboard.writeText(link).then(()=>{
+      copyLinkBtn.textContent = 'הקישור הועתק ✓';
+      setTimeout(()=>copyLinkBtn.textContent='העתקת קישור לשיתוף בין המכשירים', 1500);
+    });
+  });
+
+  joinToggle.addEventListener('click', ()=>{
+    joinBox.style.display = joinBox.style.display === 'block' ? 'none' : 'block';
+  });
+
+  joinBtn.addEventListener('click', async ()=>{
+    let val = joinInput.value.trim();
+    if (!val) return;
+    try{
+      if (val.includes('sync=')){
+        const u = new URL(val, location.href);
+        val = u.searchParams.get('sync') || val;
+      }
+    } catch(e){ /* not a URL, treat as raw code */ }
+    syncId = val;
+    localStorage.setItem(SYNC_ID_KEY, syncId);
+    history.replaceState(null, '', urlWithSync(syncId));
+    joinInput.value = '';
+    joinBox.style.display = 'none';
+    setStatus('', 'מתחבר…');
+    try{
+      const remote = await pullRemote(syncId);
+      const merged = mergeLists(entries, remote);
+      entries = merged;
+      saveCache(entries);
+      render();
+      if (merged.length !== remote.length) await pushRemote(syncId, merged);
+      attachListener(syncId);
+      setStatus('ok', 'מחובר ליומן המשותף ✓');
+    } catch(e){
+      setStatus('warn', 'לא הצליח להתחבר — בדקי את הקוד');
+    }
+  });
+
+  // ---------- speech recognition (optional dictation helper) ----------
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognizing = false, recognition = null;
+
+  if (!SR){
+    unsupportedBanner.style.display = 'block';
+    micBtn.style.display = 'none';
+  } else {
+    recognition = new SR();
+    recognition.lang = 'he-IL';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    let finalText = "";
+
+    recognition.onresult = (e)=>{
+      let interim = "";
+      for (let i=e.resultIndex; i<e.results.length; i++){
+        const r = e.results[i];
+        if (r.isFinal) finalText += r[0].transcript + " ";
+        else interim += r[0].transcript;
+      }
+      entryText.value = (finalText + interim).trim();
+    };
+    recognition.onerror = ()=>{ stopRecording(); };
+    recognition.onend = ()=>{
+      if (recognizing){ try{ recognition.start(); } catch(e){ stopRecording(); } }
+    };
+
+    function startRecording(){
+      finalText = entryText.value ? entryText.value + " " : "";
+      recognizing = true;
+      micBtn.classList.add('recording');
+      micBtn.textContent = '⏹';
+      try{ recognition.start(); } catch(e){}
+    }
+    function stopRecording(){
+      recognizing = false;
+      micBtn.classList.remove('recording');
+      micBtn.textContent = '🎤';
+      try{ recognition.stop(); } catch(e){}
+    }
+    micBtn.addEventListener('click', ()=>{
+      if (recognizing) stopRecording(); else startRecording();
+    });
+  }
+
+  // ---------- add ----------
+  addBtn.addEventListener('click', ()=>{
+    const text = entryText.value.trim();
+    if (!text) return;
+    entries.push({
+      id: Date.now() + "-" + Math.random().toString(36).slice(2,7),
+      ts: Date.now(),
+      date: entryDate.value || todayStr(),
+      text: text,
+      done: false,
+      kind: null,
+      amount: null
+    });
+    persist();
+    entryText.value = "";
+    entryDate.value = todayStr();
+  });
+
+  // ---------- tabs ----------
+  function setTab(tab){
+    currentTab = tab;
+    tabList.classList.toggle('active', tab === 'list');
+    tabSummary.classList.toggle('active', tab === 'summary');
+    listView.style.display = tab === 'list' ? 'block' : 'none';
+    summaryView.style.display = tab === 'summary' ? 'block' : 'none';
+    render();
+  }
+  tabList.addEventListener('click', ()=>setTab('list'));
+  tabSummary.addEventListener('click', ()=>setTab('summary'));
+
+  document.querySelectorAll('.filter').forEach(f=>{
+    f.addEventListener('click', ()=>{
+      document.querySelectorAll('.filter').forEach(x=>x.classList.remove('active'));
+      f.classList.add('active');
+      currentFilter = f.dataset.filter;
+      render();
+    });
+  });
+
+  // ---------- render: list ----------
+  function fmtDate(d){
+    if (!d) return '';
+    const parts = d.split('-');
+    return parts[2] + '.' + parts[1] + '.' + parts[0].slice(2);
+  }
+
+  function makeEntryEl(entry){
+    const div = document.createElement('div');
+    div.className = 'entry' + (entry.done ? ' done' : '');
+
+    const row1 = document.createElement('div');
+    row1.className = 'row1';
+    const check = document.createElement('input');
+    check.type = 'checkbox';
+    check.checked = !!entry.done;
+    check.addEventListener('change', ()=>{
+      entry.done = check.checked;
+      persist();
+    });
+    const text = document.createElement('div');
+    text.className = 'text';
+    text.textContent = entry.text;
+    const date = document.createElement('div');
+    date.className = 'date';
+    date.textContent = fmtDate(entry.date);
+    row1.appendChild(check);
+    row1.appendChild(text);
+    row1.appendChild(date);
+    div.appendChild(row1);
+
+    const row2 = document.createElement('div');
+    row2.className = 'row2';
+    const incomeBtn = document.createElement('span');
+    incomeBtn.className = 'kindBtn income' + (entry.kind === 'income' ? ' active' : '');
+    incomeBtn.textContent = 'הכנסה';
+    const expenseBtn = document.createElement('span');
+    expenseBtn.className = 'kindBtn expense' + (entry.kind === 'expense' ? ' active' : '');
+    expenseBtn.textContent = 'הוצאה';
+    const amountInput = document.createElement('input');
+    amountInput.className = 'amountInput';
+    amountInput.type = 'number';
+    amountInput.placeholder = '₪ סכום';
+    amountInput.value = entry.amount != null ? entry.amount : '';
+
+    incomeBtn.addEventListener('click', ()=>{
+      entry.kind = entry.kind === 'income' ? null : 'income';
+      persist();
+    });
+    expenseBtn.addEventListener('click', ()=>{
+      entry.kind = entry.kind === 'expense' ? null : 'expense';
+      persist();
+    });
+    amountInput.addEventListener('change', ()=>{
+      const v = parseFloat(amountInput.value);
+      entry.amount = isNaN(v) ? null : v;
+      persist();
+    });
+
+    const del = document.createElement('span');
+    del.className = 'del';
+    del.textContent = 'מחיקה';
+    del.addEventListener('click', ()=>{
+      entries = entries.filter(e=>e.id !== entry.id);
+      persist();
+    });
+
+    row2.appendChild(incomeBtn);
+    row2.appendChild(expenseBtn);
+    row2.appendChild(amountInput);
+    row2.appendChild(del);
+    div.appendChild(row2);
+
+    return div;
+  }
+
+  function renderList(){
+    listEl.innerHTML = "";
+    let filtered = entries.slice();
+    if (currentFilter === 'open') filtered = filtered.filter(e=>!e.done);
+    if (currentFilter === 'done') filtered = filtered.filter(e=>e.done);
+    filtered.sort((a,b)=> (b.date||'').localeCompare(a.date||'') || (b.ts||0)-(a.ts||0));
+    emptyMsg.style.display = filtered.length ? 'none' : 'block';
+    filtered.forEach(entry => listEl.appendChild(makeEntryEl(entry)));
+  }
+
+  // ---------- render: monthly summary ----------
+  const HEB_MONTHS = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
+
+  function shiftMonth(key, delta){
+    const [y,m] = key.split('-').map(Number);
+    const d = new Date(y, m-1+delta, 1);
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+  }
+
+  prevMonthBtn.addEventListener('click', ()=>{ summaryMonth = shiftMonth(summaryMonth,-1); render(); });
+  nextMonthBtn.addEventListener('click', ()=>{ summaryMonth = shiftMonth(summaryMonth, 1); render(); });
+
+  function renderSummary(){
+    const [y,m] = summaryMonth.split('-').map(Number);
+    monthLabel.textContent = HEB_MONTHS[m-1] + ' ' + y;
+
+    const monthEntries = entries.filter(e => (e.date||'').slice(0,7) === summaryMonth);
+    const incomeEntries = monthEntries.filter(e => e.kind === 'income');
+    const expenseEntries = monthEntries.filter(e => e.kind === 'expense');
+    const unclassified = monthEntries.filter(e => !e.kind);
+
+    const incomeTotal = incomeEntries.reduce((s,e)=> s + (e.amount||0), 0);
+    const expenseTotal = expenseEntries.reduce((s,e)=> s + (e.amount||0), 0);
+
+    incomeTotalEl.textContent = '₪' + incomeTotal.toLocaleString('he-IL');
+    expenseTotalEl.textContent = '₪' + expenseTotal.toLocaleString('he-IL');
+    netTotalEl.textContent = '₪' + (incomeTotal-expenseTotal).toLocaleString('he-IL');
+
+    if (unclassified.length){
+      unclassifiedNote.style.display = 'block';
+      unclassifiedNote.textContent = 'יש ' + unclassified.length + ' משימות מהחודש הזה שעדיין לא סווגו כהכנסה/הוצאה — אפשר לסווג אותן בלשונית "רשימה".';
+    } else {
+      unclassifiedNote.style.display = 'none';
+    }
+
+    incomeListEl.innerHTML = "";
+    expenseListEl.innerHTML = "";
+    incomeEntries.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    expenseEntries.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    incomeEntries.forEach(e => incomeListEl.appendChild(makeEntryEl(e)));
+    expenseEntries.forEach(e => expenseListEl.appendChild(makeEntryEl(e)));
+    if (!incomeEntries.length){ incomeListEl.innerHTML = '<div class="empty">אין הכנסות מסווגות בחודש זה.</div>'; }
+    if (!expenseEntries.length){ expenseListEl.innerHTML = '<div class="empty">אין הוצאות מסווגות בחודש זה.</div>'; }
+  }
+
+  function render(){
+    if (currentTab === 'list') renderList();
+    else renderSummary();
+  }
+
+  initSync();
+})();
+</script>
+</body>
+</html>
